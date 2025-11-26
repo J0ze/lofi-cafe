@@ -3,13 +3,10 @@ import { Play, Pause, SkipForward, SkipBack, Shuffle, List, Volume2, RefreshCw }
 import { usePlayer } from '../contexts/PlayerContext';
 
 const Jukebox = ({ onToggleMenu, isLoading, loadingStatus }) => {
-  const { 
-    currentSong, isPlaying, togglePlay, playNext, playPrev, 
-    isShuffle, setIsShuffle, volume, setVolume, consecutiveErrors 
-  } = usePlayer();
+  const { currentSong, isPlaying, togglePlay, playNext, playPrev, isShuffle, setIsShuffle, volume, setVolume, consecutiveErrors } = usePlayer();
 
   const handleImageError = (e) => {
-    e.target.src = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop";
+    e.target.src = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200";
   };
 
   return (
@@ -32,7 +29,6 @@ const Jukebox = ({ onToggleMenu, isLoading, loadingStatus }) => {
           onClick={onToggleMenu}
           title="点击打开/关闭歌单"
         >
-           {/* Loading 状态 */}
            {isLoading && (
              <div className="absolute inset-0 z-30 flex flex-col gap-2 items-center justify-center bg-black/60 rounded-full backdrop-blur-sm px-4 text-center">
                <RefreshCw className="animate-spin text-orange-400" size={32} />
