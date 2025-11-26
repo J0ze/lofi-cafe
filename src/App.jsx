@@ -14,21 +14,18 @@ const LofiCafeContent = () => {
   const [loadError, setLoadError] = useState(null);
   const [isUsingApi, setIsUsingApi] = useState(false);
 
-  // 缓存键名
-  const CACHE_KEY = 'lofi_cafe_playlist_v2'; // 升级版本号，避免读取旧缓存
+  const CACHE_KEY = 'lofi_cafe_playlist_v2';
 
   const loadMusic = async () => {
     setIsLoading(true);
     setLoadError(null);
-    setLoadingStatus('检查缓存...');
+    setLoadingStatus('Checking cache...');
 
-    // --- 1. 优先读取缓存 (防 API 封禁) ---
     try {
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {
             const { pid, data, timestamp } = JSON.parse(cached);
             if (pid === currentPlaylistId && (Date.now() - timestamp < 3600000)) {
-                console.log("Using cached playlist");
                 startNewPlaylist(data);
                 setIsUsingApi(true);
                 setIsLoading(false);
@@ -36,16 +33,14 @@ const LofiCafeContent = () => {
                 return;
             }
         }
-    } catch (e) { console.warn("Cache error", e); }
+    } catch (e) { console.warn(e); }
 
-    // --- 2. 请求 API ---
-    setLoadingStatus('连接音乐节点...');
+    setLoadingStatus('Connecting...');
     try {
       const detailData = await API.fetchPlaylistDetail(currentPlaylistId);
-      if (detailData.code !== 200) throw new Error("无法获取歌单");
+      if (detailData.code !== 200) throw new Error("API Error");
       
       const totalTracks = detailData.playlist.trackCount;
-      // 稍微多取一点，因为我们要切掉第一首
       const limit = 50; 
       let randomOffset = 0;
       if (totalTracks > limit) {
@@ -53,11 +48,11 @@ const LofiCafeContent = () => {
          randomOffset = Math.floor(Math.random() * (maxOffset + 1));
       }
 
-      setLoadingStatus(`挖掘宝藏 (Start: ${randomOffset})...`);
+      setLoadingStatus(`Digging (Start: ${randomOffset})...`);
       const listData = await API.fetchTrackList(currentPlaylistId, limit, randomOffset);
-      if (!listData.songs || listData.songs.length === 0) throw new Error("歌单片段为空");
+      if (!listData.songs || listData.songs.length === 0) throw new Error("Empty list");
 
-      setLoadingStatus('解析音频...');
+      setLoadingStatus('Resolving audio...');
       const songIds = listData.songs.map(s => s.id).join(',');
       const urlData = await API.fetchSongUrls(songIds);
       
@@ -77,17 +72,12 @@ const LofiCafeContent = () => {
             };
         });
 
-      // 🔪🔪🔪【核心讨巧修改】🔪🔪🔪
-      // 既然第一首总是加载失败，我们直接把它切掉！
-      // 从第二首开始取，彻底避开“首曲魔咒”
+      // 依然保留切掉第一首的逻辑，确保播放稳定性
       const finalPlaylist = rawSongs.length > 1 ? rawSongs.slice(1) : rawSongs;
 
-      if (finalPlaylist.length === 0) throw new Error("无可用歌曲");
-
-      // --- 3. 写入缓存 ---
       localStorage.setItem(CACHE_KEY, JSON.stringify({
           pid: currentPlaylistId,
-          data: finalPlaylist, // 存入的是切掉第一首后的干净列表
+          data: finalPlaylist,
           timestamp: Date.now()
       }));
 
@@ -96,14 +86,13 @@ const LofiCafeContent = () => {
 
     } catch (err) {
       console.error(err);
-      // 降级使用旧缓存
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
           startNewPlaylist(JSON.parse(cached).data);
           setIsUsingApi(true);
-          setLoadError("网络受限，加载历史缓存");
+          setLoadError("Offline Mode (Cache)");
       } else {
-          setLoadError("加载失败，切换离线模式");
+          setLoadError("Offline Mode");
           startNewPlaylist(INITIAL_PLAYLIST); 
           setIsUsingApi(false);
       }
@@ -129,10 +118,11 @@ const LofiCafeContent = () => {
       <div className="absolute inset-0 z-0 bg-orange-900/20 pointer-events-none mix-blend-overlay"></div>
 
       <div className="relative z-10 w-full h-full flex flex-col items-center justify-center">
-        <div className="absolute top-8 left-8 text-orange-100 opacity-80 hidden md:block">
-          <h1 className="text-3xl font-light tracking-widest uppercase">Lofi Café</h1>
+        {/* 修复：移除 hidden md:block，改为响应式布局，保证手机可见 */}
+        <div className="absolute top-6 left-6 md:top-8 md:left-8 text-orange-100 opacity-80 z-20 pointer-events-none">
+          <h1 className="text-xl md:text-3xl font-light tracking-widest uppercase">Lofi Café</h1>
           <div className="flex items-center gap-2 mt-1">
-            <p className="text-sm font-light text-orange-300">Open 24/7</p>
+            <p className="text-xs md:text-sm font-light text-orange-300">Open 24/7</p>
             <span className={`text-[10px] px-1.5 py-0.5 rounded border ${isUsingApi ? 'bg-green-900/50 text-green-300 border-green-700/50' : 'bg-stone-800 text-stone-400 border-stone-700'}`}>
               {isUsingApi ? 'Online' : 'Offline'}
             </span>
@@ -141,6 +131,7 @@ const LofiCafeContent = () => {
 
         <div className="relative">
           <Jukebox onToggleMenu={() => setShowMenu(!showMenu)} isLoading={isLoading} loadingStatus={loadingStatus} />
+          {/* 歌单组件 */}
           <PlaylistMenu show={showMenu} onClose={() => setShowMenu(false)} onPlaylistChange={setCurrentPlaylistId} onRefreshPlaylist={handleRefresh} isUsingApi={isUsingApi} loadError={loadError} />
         </div>
       </div>

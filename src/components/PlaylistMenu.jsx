@@ -18,11 +18,7 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
       if (data.code === 200 && data.playlist) {
         setUserPlaylists(data.playlist);
       }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsFetchingPlaylists(false);
-    }
+    } catch (error) { console.error(error); } finally { setIsFetchingPlaylists(false); }
   };
 
   const handlePlaylistClick = (id) => {
@@ -31,8 +27,17 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
   };
 
   return (
+    // 核心修复：
+    // 手机端 (默认): fixed inset-x-4 ... (中央弹窗)
+    // 电脑端 (md:): absolute left-full ... (侧边悬浮)
     <div 
-      className={`absolute top-0 left-full ml-6 w-72 h-[500px] bg-stone-900/95 backdrop-blur-md rounded-2xl border border-stone-700 shadow-2xl transition-all duration-300 origin-top-left overflow-hidden flex flex-col z-50 ${show ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
+      className={`
+        fixed inset-x-4 top-24 bottom-24 z-50 
+        md:absolute md:inset-auto md:top-0 md:left-full md:ml-6 md:w-72 md:h-[500px]
+        bg-stone-900/95 backdrop-blur-md rounded-2xl border border-stone-700 shadow-2xl 
+        transition-all duration-300 overflow-hidden flex flex-col
+        ${show ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 md:translate-y-0 pointer-events-none'}
+      `}
     >
       {/* 顶部导航 */}
       <div className="p-3 border-b border-white/10 flex justify-between items-center bg-stone-800/50">
@@ -47,7 +52,6 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
           <button onClick={onClose} className="text-stone-500 hover:text-orange-300"><X size={18} /></button>
       </div>
 
-      {/* 错误提示 */}
       {loadError && (
         <div className="p-2 bg-red-900/20 border-b border-red-500/20 flex items-center gap-2 text-red-200 text-xs">
           <AlertCircle size={14} />
@@ -55,12 +59,11 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
         </div>
       )}
 
-      {/* 歌曲列表视图 */}
       {menuView === 'tracks' && (
         <>
           <div className="px-3 py-2 bg-black/10 text-[10px] text-stone-500 flex justify-between items-center">
               <span>Current Playlist ({playlist.length})</span>
-              <button onClick={onRefreshPlaylist} className="flex items-center gap-1 hover:text-orange-300 transition" title="随机换一批歌">
+              <button onClick={onRefreshPlaylist} className="flex items-center gap-1 hover:text-orange-300 transition" title="Shuffle New">
                   <Sparkles size={10} />
                   <span>Shuffle New</span>
               </button>
@@ -79,7 +82,6 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
                     <p className={`text-xs truncate font-medium ${currentSongIndex === index ? 'text-orange-200' : 'text-stone-300'}`}>{song.title}</p>
                     <p className="text-[10px] text-stone-500 truncate mt-0.5">{song.artist}</p>
                 </div>
-                {/* 播放动画 */}
                 <div className="ml-auto pl-2">
                     {currentSongIndex === index && isPlaying && (
                     <div className="flex gap-[2px] items-end h-3">
@@ -95,7 +97,6 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
         </>
       )}
 
-      {/* 用户搜索视图 */}
       {menuView === 'user_search' && (
         <div className="flex flex-col h-full">
             <div className="p-3 border-b border-white/5 space-y-2">
@@ -127,9 +128,6 @@ const PlaylistMenu = ({ show, onClose, onPlaylistChange, onRefreshPlaylist, isUs
                     >
                         <div className="w-10 h-10 rounded shrink-0 shadow-sm overflow-hidden bg-stone-800 relative">
                             <img src={pl.coverImgUrl} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" alt="cover" />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition">
-                                <Play size={16} className="text-white opacity-0 group-hover:opacity-100" fill="currentColor"/>
-                            </div>
                         </div>
                         <div className="ml-3 overflow-hidden flex-1">
                             <p className="text-xs truncate font-medium text-stone-300 group-hover:text-orange-200">{pl.name}</p>
