@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 
 const PlayerContext = createContext();
+
 export const usePlayer = () => useContext(PlayerContext);
 
 const INITIAL_PLAYLIST = [
@@ -19,11 +20,18 @@ export const PlayerProvider = ({ children }) => {
 
   const currentSong = playlist[currentSongIndex];
 
-  useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
+  // 1. 音量控制
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume]);
 
+  // 2. 播放/暂停控制
+  // 只要 isPlaying 或 currentSongIndex 变化，这里就会触发播放，保证切歌流畅
   useEffect(() => {
     if (!audioRef.current) return;
+
     if (isPlaying) {
+      // 稍微延迟一下以确保 src 已经更新（虽然通常 React 渲染很快）
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
@@ -36,9 +44,35 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [isPlaying, currentSongIndex, playlist]); 
 
+  // 3. Media Session API (锁屏控制 + 后台保活)
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentSong) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist,
+        artwork: [
+          { src: currentSong.cover, sizes: '96x96', type: 'image/jpeg' },
+          { src: currentSong.cover, sizes: '128x128', type: 'image/jpeg' },
+          { src: currentSong.cover, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentSong.cover, sizes: '512x512', type: 'image/jpeg' },
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
+      navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+      navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
+      navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+    }
+  }, [currentSong, isShuffle, playlist]); 
+
+  // 4. 监听播放结束，自动下一首
   useEffect(() => {
     const audio = audioRef.current;
-    const handleEnded = () => playNext();
+    const handleEnded = () => {
+        console.log("Song finished. Auto-playing next...");
+        playNext();
+    };
+
     if (audio) {
       audio.addEventListener('ended', handleEnded);
       return () => audio.removeEventListener('ended', handleEnded);
@@ -114,11 +148,12 @@ export const PlayerProvider = ({ children }) => {
       INITIAL_PLAYLIST
     }}>
       {children}
-      {/* 这里只保留了最基本的防盗链配置。
-         因为第一首歌已经被 App.jsx 切掉了，传到这里的都是好的，直接播放即可。
+      {/* ★ 核心修改 ★
+        1. 移除了 key={currentSong?.id}：现在 audio 标签是复用的，浏览器知道这是“同一个连续的播放会话”，
+           配合上面的 Media Session API，即可完美支持后台自动切歌。
+        2. 保留 referrerPolicy="no-referrer"：确保切歌后请求新 URL 时依然不带 Referrer，防盗链依然有效。
       */}
       <audio
-        key={currentSong?.id}
         ref={audioRef}
         src={currentSong?.url}
         onError={handleAudioError}
